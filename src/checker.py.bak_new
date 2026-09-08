@@ -1,0 +1,69 @@
+
+import httpx
+import re
+import asyncio
+import argparse
+from pathlib import Path
+
+async def find_links(text):
+    return re.findall(r'\[.*?\]\((https?://.*?)\)', text)
+
+async def check_link(client, url):
+    try:
+        response = await client.head(url, follow_redirects=True, timeout=5.0)
+        if response.status_code == 200:
+            return url, 200, None
+        return await check_wayback(client, url)
+    except Exception as e:
+        return await check_wayback(client, url)
+
+async def check_wayback(client, url):
+    try:
+        wb_url = f"http://archive.org/wayback/available?url={url}"
+        response = await client.get(wb_url, timeout=5.0)
+        data = response.json()
+        snapshots = data.get("archived_snapshots", {})
+        if "closest" in snapshots:
+            return url, "Archived", snapshots["closest"]["url"]
+        return url, "Not Found", None
+    except Exception as e:
+        return url, f"Wayback Error: {e}", None
+
+async def scan_file(file_path):
+    with open(file_path, 'r') as f:
+        text = f.read()
+    links = await find_links(text)
+    return links
+
+async def main():
+    parser = argparse.ArgumentParser(description="Find and fix broken links in Markdown files.")
+    parser.add_argument("path", help="Path to file or directory to scan")
+    parser.add_argument("--fix", action="store_true", help="Attempt to fix broken links")
+    args = parser.parse_args()
+
+    async with httpx.AsyncClient() as client:
+        path = Path(args.path)
+        files = [path] if path.is_file() else path.rglob('*.md')
+        
+        for p in files:
+            print(f"Scanning {p}...")
+            text = Path(p).read_text()
+            links = await find_links(text)
+            
+            for url in links:
+                u, status, arch_url = await check_link(client, url)
+                if status != 200:
+                    print(f"  [!] {u} -> {status} {'(' + arch_url + ')' if arch_url else ''}")
+                    if args.fix and arch_url:
+                        # Safer replacement logic
+                        pattern = rf"\(\s*{re.escape(u)}\s*\)"
+                        new_text = re.sub(pattern, f"({arch_url})", text)
+                        
+                        # We need to save the change only if it actually changed
+                        if new_text != text:
+                            print(f"      Fixing {u}...")
+                            Path(p).write_text(new_text)
+                            text = new_text
+
+if __name__ == "__main__":
+    asyncio.run(main())

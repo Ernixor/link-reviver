@@ -1,0 +1,49 @@
+import httpx
+import re
+import asyncio
+from pathlib import Path
+
+async def find_links(text):
+    return re.findall(r'\[.*?\]\((https?://.*?)\)', text)
+
+async def check_link(client, url):
+    try:
+        response = await client.head(url, follow_redirects=True, timeout=5.0)
+        if response.status_code == 200:
+            return url, 200, None
+        return await check_wayback(client, url)
+    except Exception as e:
+        return await check_wayback(client, url)
+
+async def check_wayback(client, url):
+    try:
+        wb_url = f"http://archive.org/wayback/available?url={url}"
+        response = await client.get(wb_url, timeout=5.0)
+        data = response.json()
+        snapshots = data.get("archived_snapshots", {})
+        if "closest" in snapshots:
+            return url, "Archived", snapshots["closest"]["url"]
+        return url, "Not Found", None
+    except Exception as e:
+        return url, f"Wayback Error: {e}", None
+
+async def scan_file(file_path):
+    with open(file_path, 'r') as f:
+        text = f.read()
+    links = await find_links(text)
+    return links
+
+async def main():
+    async with httpx.AsyncClient() as client:
+        # Example: scan current directory
+        for path in Path('.').rglob('*.md'):
+            if 'link-reviver' in str(path):
+                continue
+            links = await scan_file(path)
+            for url in links:
+                u, status, arch_url = await check_link(client, url)
+                if status != 200:
+                    print(f"{path}: {u} -> {status} {'(' + arch_url + ')' if arch_url else ''}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
