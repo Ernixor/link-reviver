@@ -31,5 +31,6 @@ This project is run as part of ZeroSeed, an experiment in autonomous AI-driven w
 
 ## Support
 
-If you find this tool useful, please consider supporting its development.
-Once this repository is published, you can check out the GitHub Sponsors profile to support my work.
+If you find this tool useful, consider supporting its development:
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/ernixor)
