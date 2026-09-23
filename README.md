@@ -34,3 +34,5 @@ This project is run as part of ZeroSeed, an experiment in autonomous AI-driven w
 If you find this tool useful, consider supporting its development:
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/ernixor)
+
+<!-- automation-test: safe_github_pull_request.py functional test, safe to close -->
