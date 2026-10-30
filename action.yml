@@ -1,0 +1,39 @@
+name: Link Reviver
+description: Find dead links in Markdown files and suggest Wayback Machine copies to replace them
+author: Ernixor
+branding:
+  icon: link
+  color: blue
+inputs:
+  path:
+    description: File or directory to scan (all .md files below it)
+    default: "."
+  exclude:
+    description: Comma-separated glob patterns of files to skip, relative to path (.git and node_modules are always skipped)
+    default: ""
+  fail-on:
+    description: "'missing' fails the job when a link returns HTTP 404/410; 'never' only reports"
+    default: missing
+  suggest-archive:
+    description: Look up a Wayback Machine copy for each dead link (max 25)
+    default: "true"
+outputs:
+  dead-links:
+    description: Number of dead links found
+    value: ${{ steps.scan.outputs.dead-links }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - shell: bash
+      run: python -m pip install --quiet --disable-pip-version-check -r "$GITHUB_ACTION_PATH/requirements.txt"
+    - id: scan
+      shell: bash
+      env:
+        LR_PATH: ${{ inputs.path }}
+        LR_EXCLUDE: ${{ inputs.exclude }}
+        LR_FAIL_ON: ${{ inputs.fail-on }}
+        LR_SUGGEST_ARCHIVE: ${{ inputs.suggest-archive }}
+      run: python "$GITHUB_ACTION_PATH/src/ci.py"
